@@ -2,6 +2,7 @@ package com.javafxtasktracker;
 
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -13,6 +14,7 @@ import javafx.scene.layout.*;
 import javafx.scene.text.Text;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.util.Callback;
 
 import java.time.LocalDate;
@@ -27,9 +29,40 @@ public class TaskTracker extends Application {
 
     Data data;
 
+    static class WindowButtons extends HBox {
+
+        public WindowButtons(Stage stage) {
+            Button minimizeBtn = new Button("_");
+            minimizeBtn.setStyle("-fx-background-color: #6F98BFFF; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-max-width: 40px; -fx-border-radius: 0;");
+            minimizeBtn.setOnAction(event -> stage.setIconified(true));
+
+            Button maximizeBtn = new Button("⛶");
+            maximizeBtn.setStyle("-fx-background-color: #6F98BFFF; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-max-width: 40px; -fx-border-radius: 0;");
+            maximizeBtn.setOnAction(event -> stage.setMaximized(!stage.isMaximized()));
+
+            Button closeBtn = new Button("X");
+            closeBtn.setStyle("-fx-background-color: #6F98BFFF; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-max-width: 40px; -fx-border-radius: 0;");
+            closeBtn.setOnAction(event -> Platform.exit());
+
+            closeBtn.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> closeBtn.setStyle("-fx-background-color: #e34336; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-max-width: 40px; -fx-border-radius: 0;"));
+            closeBtn.addEventHandler(MouseEvent.MOUSE_EXITED, e -> closeBtn.setStyle("-fx-background-color: #6F98BFFF; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-max-width: 40px; -fx-border-radius: 0;"));
+            maximizeBtn.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> maximizeBtn.setStyle("-fx-background-color: #2d72b0; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-max-width: 40px; -fx-border-radius: 0;"));
+            maximizeBtn.addEventHandler(MouseEvent.MOUSE_EXITED, e -> maximizeBtn.setStyle("-fx-background-color: #6F98BFFF; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-max-width: 40px; -fx-border-radius: 0;"));
+            minimizeBtn.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> minimizeBtn.setStyle("-fx-background-color: #2d72b0; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-max-width: 40px; -fx-border-radius: 0;"));
+            minimizeBtn.addEventHandler(MouseEvent.MOUSE_EXITED, e -> minimizeBtn.setStyle("-fx-background-color: #6F98BFFF; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-max-width: 40px; -fx-border-radius: 0;"));
+
+            // Create an HBox container for the buttons and align it to the right
+            HBox buttonContainer = new HBox(minimizeBtn, maximizeBtn, closeBtn);
+            buttonContainer.setAlignment(Pos.CENTER_RIGHT);
+
+            this.getChildren().add(buttonContainer);
+        }
+    }
+
+
     @Override
     public void start(Stage stage) {
-
+        stage.initStyle(StageStyle.UNDECORATED);
         data = new Data();
         listView = new ListView<>();
 
@@ -37,6 +70,34 @@ public class TaskTracker extends Application {
             listView.getItems().add(task);
         }
 
+        BorderPane borderPane = new BorderPane();
+
+        AnchorPane anchorPane = new AnchorPane();
+
+        class Delta { double x, y; }
+
+        final Delta dragDelta = new Delta();
+        anchorPane.setOnMousePressed(mouseEvent -> {
+            /* Record a delta distance for the drag and drop operation. */
+            dragDelta.x = stage.getX() - mouseEvent.getScreenX();
+            dragDelta.y = stage.getY() - mouseEvent.getScreenY();
+        });
+
+        anchorPane.setOnMouseDragged(mouseEvent -> {
+            stage.setX(mouseEvent.getScreenX() + dragDelta.x);
+            stage.setY(mouseEvent.getScreenY() + dragDelta.y);
+        });
+
+
+
+        int height = 25;
+        anchorPane.setPrefHeight(height);
+        anchorPane.setMinHeight(height);
+        anchorPane.setMaxHeight(height);
+        anchorPane.getChildren().add(new WindowButtons(stage));
+        anchorPane.setStyle("-fx-background-color: #6f98bf;");
+        borderPane.setTop(anchorPane);
+        AnchorPane.setRightAnchor(anchorPane.getChildren().get(0), 0.0);
         cellFactory = param -> new ListCell<>() {
             private final CheckBox checkBox = new CheckBox();
             private final Text title = new Text();
@@ -64,7 +125,7 @@ public class TaskTracker extends Application {
 
         Button addTask = initAddTaskButton();
 
-        showMainStage(stage, addTask);
+        showMainStage(stage, borderPane, addTask);
 
 
     }
@@ -150,7 +211,7 @@ public class TaskTracker extends Application {
         data.setTasks(taskList);
     }
 
-    private void showMainStage(Stage stage, Button addTask) {
+    private void showMainStage(Stage stage, BorderPane bp, Button addTask) {
         StackPane root = new StackPane();
 
         // Create and configure the background image
@@ -158,8 +219,10 @@ public class TaskTracker extends Application {
         BackgroundSize backgroundSize = new BackgroundSize(BackgroundSize.AUTO, BackgroundSize.AUTO, false, false, true, true);
         BackgroundImage bgImage = new BackgroundImage(backgroundImage, BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT, BackgroundPosition.CENTER, backgroundSize);
 
+
         // Create a container for the ListView
         VBox container = new VBox();
+        container.getChildren().add(bp);
         container.getChildren().add(listView);
         VBox.setVgrow(listView, Priority.ALWAYS);
         listView.setBackground(new Background(bgImage));
